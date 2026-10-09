@@ -1,0 +1,370 @@
+[
+    {
+        "id": "a7149920a66d163c",
+        "type": "tab",
+        "label": "data-acq",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "72bd104ff2443095",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "mqtt-broker",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "6cb2acfd403cb40a",
+        "type": "inject",
+        "z": "a7149920a66d163c",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 130,
+        "y": 160,
+        "wires": [
+            [
+                "6a483a87fbd12577"
+            ]
+        ]
+    },
+    {
+        "id": "6a483a87fbd12577",
+        "type": "file in",
+        "z": "a7149920a66d163c",
+        "name": "",
+        "filename": "/data/KAG_energydata_complete.csv",
+        "filenameType": "str",
+        "format": "utf8",
+        "chunk": false,
+        "sendError": false,
+        "encoding": "none",
+        "allProps": false,
+        "x": 390,
+        "y": 160,
+        "wires": [
+            [
+                "086a0731627108c6"
+            ]
+        ]
+    },
+    {
+        "id": "086a0731627108c6",
+        "type": "csv",
+        "z": "a7149920a66d163c",
+        "name": "",
+        "spec": "rfc",
+        "sep": ",",
+        "hdrin": true,
+        "hdrout": "none",
+        "multi": "mult",
+        "ret": "\\r\\n",
+        "temp": "",
+        "skip": "0",
+        "strings": false,
+        "include_empty_strings": "",
+        "include_null_values": "",
+        "x": 650,
+        "y": 160,
+        "wires": [
+            [
+                "a768afe7fbbc3813"
+            ]
+        ]
+    },
+    {
+        "id": "5ee632882668187d",
+        "type": "function",
+        "z": "a7149920a66d163c",
+        "name": "normalize",
+        "func": "// ===============================\n// NORMALIZE & TIMESTAMP\n// ===============================\n\nfunction toNumber(value) {\n    if (value === undefined || value === null) return null;\n    const cleaned = String(value).trim();\n    const num = Number(cleaned);\n    return isNaN(num) ? null : num;\n}\n\nconst row = msg.payload;\n\nmsg.payload = {\n    metadata: {\n        original_date: row.date || null,\n        source: \"data-acq\",\n    },\n    sensors: {\n        energy: {\n            appliances: toNumber(row.Appliances),\n            lights: toNumber(row.lights)\n        },\n        indoor: {\n            T1: toNumber(row.T1),\n            RH_1: toNumber(row.RH_1),\n            T2: toNumber(row.T2),\n            RH_2: toNumber(row.RH_2),\n            T3: toNumber(row.T3),\n            RH_3: toNumber(row.RH_3),\n            T4: toNumber(row.T4),\n            RH_4: toNumber(row.RH_4),\n            T5: toNumber(row.T5),\n            RH_5: toNumber(row.RH_5),\n            T6: toNumber(row.T6),\n            RH_6: toNumber(row.RH_6),\n            T7: toNumber(row.T7),\n            RH_7: toNumber(row.RH_7),\n            T8: toNumber(row.T8),\n            RH_8: toNumber(row.RH_8),\n            T9: toNumber(row.T9),\n            RH_9: toNumber(row.RH_9)\n        },\n        outdoor: {\n            temperature: toNumber(row.T_out),\n            humidity: toNumber(row.RH_out),\n            pressure_mm_hg: toNumber(row.Press_mm_hg),\n            windspeed: toNumber(row.Windspeed),\n            visibility: toNumber(row.Visibility),\n            dewpoint: toNumber(row.Tdewpoint)\n        },\n        randomness: {\n            rv1: toNumber(row.rv1),\n            rv2: toNumber(row.rv2)\n        }\n    }\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 260,
+        "wires": [
+            [
+                "c6181ee8b56a9ee7"
+            ]
+        ]
+    },
+    {
+        "id": "c6181ee8b56a9ee7",
+        "type": "function",
+        "z": "a7149920a66d163c",
+        "name": "build_topics",
+        "func": "// ===============================\n// BUILD TOPICS - 1 SENSOR = 1 TOPIC\n// ===============================\n\nconst base = msg.payload;\nconst baseMetadata = base.metadata || {};\n\nlet messages = [];\nlet sequence = 0;\n\nconst sampleRoot = String(baseMetadata.timestamp_acq || Date.now());\nconst sampleId = 'sample_' + sampleRoot + '_' + Math.random().toString(16).slice(2, 10);\n\nfunction buildMetadata(sensorGroup, sensorKey) {\n    sequence += 1;\n\n    return {\n        ...baseMetadata,\n        sample_id: sampleId,\n        message_id: sampleId + '_' + sensorGroup + '_' + sensorKey + '_' + sequence,\n        sensor_group: sensorGroup,\n        sensor_key: sensorKey\n    };\n}\n\nconst roomMap = {\n    1: \"kitchen\",\n    2: \"livingroom\",\n    3: \"laundry\",\n    4: \"office\",\n    5: \"bathroom\",\n    6: \"outside_building\",\n    7: \"ironing_room\",\n    8: \"teen_room\",\n    9: \"parents_room\"\n};\n\nfor (let key in base.sensors.energy) {\n    messages.push({\n        topic: `data/energy/${key}`,\n        payload: {\n            metadata: buildMetadata(\"energy\", key),\n            value: base.sensors.energy[key]\n        }\n    });\n}\n\nfor (let key in base.sensors.indoor) {\n    const number = key.match(/[0-9]+/)[0];\n    const roomName = roomMap[number] || `room_${number}`;\n    const type = key.startsWith(\"T\") ? \"temperature\" : \"humidity\";\n\n    messages.push({\n        topic: `data/home/${roomName}/${type}`,\n        payload: {\n            metadata: buildMetadata(\"indoor\", key),\n            value: base.sensors.indoor[key]\n        }\n    });\n}\n\nfor (let key in base.sensors.outdoor) {\n    messages.push({\n        topic: `data/weather_station/${key}`,\n        payload: {\n            metadata: buildMetadata(\"outdoor\", key),\n            value: base.sensors.outdoor[key]\n        }\n    });\n}\n\nfor (let key in base.sensors.randomness) {\n    messages.push({\n        topic: `data/random/${key}`,\n        payload: {\n            metadata: buildMetadata(\"randomness\", key),\n            value: base.sensors.randomness[key]\n        }\n    });\n}\n\nreturn [messages];",
+        "outputs": 1,
+        "timeout": "0",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 570,
+        "y": 260,
+        "wires": [
+            [
+                "c6000868da86ce12"
+            ]
+        ]
+    },
+    {
+        "id": "c6000868da86ce12",
+        "type": "function",
+        "z": "a7149920a66d163c",
+        "name": "encrypt_topics",
+        "func": "// ===============================\n// ENCRYPT TOPIC (AES-256-CBC)\n// ===============================\n\nconst algorithm = \"aes-256-cbc\";\nconst sharedSecret = env.get(\"TOPIC_AES_SECRET\");\n\nif (!sharedSecret || sharedSecret.length < 16) {\n    node.error(\"TOPIC_AES_SECRET non configurato o troppo corto\");\n    return null;\n}\n\nconst key = crypto.createHash(\"sha256\")\n                  .update(sharedSecret)\n                  .digest();\n\nconst iv = crypto.randomBytes(16);\nconst cipher = crypto.createCipheriv(algorithm, key, iv);\n\nlet encrypted = cipher.update(String(msg.topic || \"\"), \"utf8\", \"hex\");\nencrypted += cipher.final(\"hex\");\n\nmsg.topic = \"enc/\" + iv.toString(\"hex\") + \"/\" + encrypted;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "crypto",
+                "module": "crypto"
+            }
+        ],
+        "x": 740,
+        "y": 260,
+        "wires": [
+            [
+                "a2efa2ba9a11a106"
+            ]
+        ]
+    },
+    {
+        "id": "a768afe7fbbc3813",
+        "type": "function",
+        "z": "a7149920a66d163c",
+        "name": "store_dataset",
+        "func": "// Salva dataset completo in memoria globale\nif (!Array.isArray(msg.payload) || msg.payload.length === 0) {\n    global.set(\"dataset\", null);\n    global.set(\"index\", 0);\n    global.set(\"dataset_ready\", false);\n    node.error(\"Dataset vuoto o non valido\");\n    return null;\n}\n\nglobal.set(\"dataset\", msg.payload);\nglobal.set(\"index\", 0);\nglobal.set(\"dataset_ready\", true);\n\nnode.warn(\"Dataset caricato: \" + msg.payload.length + \" righe\");\n\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 860,
+        "y": 160,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "8c8bf970eb857b25",
+        "type": "inject",
+        "z": "a7149920a66d163c",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "5",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 130,
+        "y": 260,
+        "wires": [
+            [
+                "b68a7d019629118f"
+            ]
+        ]
+    },
+    {
+        "id": "b68a7d019629118f",
+        "type": "function",
+        "z": "a7149920a66d163c",
+        "name": "next_row",
+        "func": "const ready = global.get(\"dataset_ready\");\nconst dataset = global.get(\"dataset\");\n\nif (!ready || !Array.isArray(dataset) || dataset.length === 0) {\n    node.warn(\"Dataset non ancora caricato\");\n    return null;\n}\n\nlet index = global.get(\"index\") || 0;\n\nif (index >= dataset.length) {\n    index = 0; // loop infinito\n}\n\nmsg.payload = dataset[index];\n\nglobal.set(\"index\", index + 1);\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 280,
+        "y": 260,
+        "wires": [
+            [
+                "5ee632882668187d"
+            ]
+        ]
+    },
+    {
+        "id": "a2efa2ba9a11a106",
+        "type": "function",
+        "z": "a7149920a66d163c",
+        "name": "encrypt_payload",
+        "func": "// ===============================\n// ENCRYPT PAYLOAD (ECC + AES)\n// VERSIONE DEFINITIVA\n// ===============================\n\nconst EC = elliptic.ec;\nconst ec = new EC('secp256k1');\n\nconst originalPayload = msg.payload || {};\nconst originalMetadata = originalPayload.metadata || {};\n\nconst keys = global.get(\"ecc_public_keys\");\nconst keyId = global.get(\"current_key_id\");\n\nif (!keys || !keys[keyId]) {\n    node.warn(\"Public key non disponibile\");\n    return null;\n}\nconst publicKeyHex = keys[keyId];\nconst recipientPublic = ec.keyFromPublic(publicKeyHex, 'hex');\n\nconst aesKey = crypto.randomBytes(32);\nconst iv = crypto.randomBytes(16);\n\nconst cipher = crypto.createCipheriv('aes-256-cbc', aesKey, iv);\n\nlet encryptedData = cipher.update(JSON.stringify(originalPayload), 'utf8', 'hex');\nencryptedData += cipher.final('hex');\n\nconst ephemeral = ec.genKeyPair();\nconst sharedSecret = ephemeral.derive(recipientPublic.getPublic());\n\nconst derivedKey = crypto.createHash('sha256')\n                         .update(sharedSecret.toString(16))\n                         .digest();\n\nconst cipherKey = crypto.createCipheriv('aes-256-cbc', derivedKey, iv);\n\nlet encryptedAESKey = cipherKey.update(aesKey.toString('hex'), 'utf8', 'hex');\nencryptedAESKey += cipherKey.final('hex');\n\nmsg.payload = {\n    metadata: {\n        message_id: originalMetadata.message_id || null,\n        sample_id: originalMetadata.sample_id || null,\n        timestamp_acq: originalMetadata.timestamp_acq || null\n    },\n    key_id: keyId,\n    encrypted_data: encryptedData,\n    encrypted_key: encryptedAESKey,\n    iv: iv.toString('hex'),\n    ephemeral_pub: ephemeral.getPublic('hex')\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "crypto",
+                "module": "crypto"
+            },
+            {
+                "var": "elliptic",
+                "module": "elliptic"
+            }
+        ],
+        "x": 920,
+        "y": 260,
+        "wires": [
+            [
+                "f64e5e814d554b23"
+            ]
+        ]
+    },
+    {
+        "id": "404476a098b07750",
+        "type": "debug",
+        "z": "a7149920a66d163c",
+        "name": "debug 1",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1320,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "59ac3005c481aa8a",
+        "type": "mqtt out",
+        "z": "a7149920a66d163c",
+        "name": "",
+        "topic": "",
+        "qos": "1",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "72bd104ff2443095",
+        "x": 1310,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "a0f9bb47e058673e",
+        "type": "mqtt in",
+        "z": "a7149920a66d163c",
+        "name": "",
+        "topic": "system/keys",
+        "qos": "1",
+        "datatype": "auto-detect",
+        "broker": "72bd104ff2443095",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 110,
+        "y": 360,
+        "wires": [
+            [
+                "ea5dcd2ae20f807a"
+            ]
+        ]
+    },
+    {
+        "id": "ea5dcd2ae20f807a",
+        "type": "function",
+        "z": "a7149920a66d163c",
+        "name": "save_public_key",
+        "func": "let keys = global.get(\"ecc_public_keys\") || {};\n\nkeys[msg.payload.key_id] = msg.payload.public_key;\n\nglobal.set(\"ecc_public_keys\", keys);\n\n// Memorizza anche quale ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¨ lÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ultima attiva\nglobal.set(\"current_key_id\", msg.payload.key_id);\n\nnode.warn(\"Nuova public key: \" + msg.payload.key_id);\n\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 360,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f64e5e814d554b23",
+        "type": "function",
+        "z": "a7149920a66d163c",
+        "name": "acq_timestamp",
+        "func": "// ===============================\n// ADD TRACE TIMESTAMP\n// ===============================\n\nconst encrypted = msg.payload || {};\nconst metadata = encrypted.metadata || {};\n\nmsg.payload = {\n    tracing: {\n        data_acq_send: Date.now()\n    },\n    metadata: {\n        message_id: metadata.message_id || null,\n        sample_id: metadata.sample_id || null,\n        timestamp_acq: metadata.timestamp_acq || null\n    },\n    encrypted: encrypted\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1120,
+        "y": 260,
+        "wires": [
+            [
+                "59ac3005c481aa8a",
+                "404476a098b07750"
+            ]
+        ]
+    }
+]

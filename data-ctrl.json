@@ -1,0 +1,794 @@
+[
+    {
+        "id": "823f377cc60a4f84",
+        "type": "tab",
+        "label": "data-ctrl",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "30394f7e7e5489ea",
+        "type": "tab",
+        "label": "Storing",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "3872f0e434942923",
+        "type": "tab",
+        "label": "Bootstrap DB",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "d9f7867ac02562f5",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "mqtt-broker",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "938d7b0aa278ed57",
+        "type": "postgreSQLConfig",
+        "name": "",
+        "host": "postgres-iot",
+        "hostFieldType": "str",
+        "port": 5432,
+        "portFieldType": "num",
+        "database": "iot_data",
+        "databaseFieldType": "str",
+        "ssl": "false",
+        "sslFieldType": "bool",
+        "applicationName": "",
+        "applicationNameType": "str",
+        "max": 10,
+        "maxFieldType": "num",
+        "idle": 1000,
+        "idleFieldType": "num",
+        "connectionTimeout": 10000,
+        "connectionTimeoutFieldType": "num",
+        "user": "iot_user",
+        "userFieldType": "str",
+        "password": "iot_pass",
+        "passwordFieldType": "str"
+    },
+    {
+        "id": "16c46cf574cd077c",
+        "type": "postgreSQLConfig",
+        "name": "",
+        "host": "postgres-iot",
+        "hostFieldType": "str",
+        "port": 5432,
+        "portFieldType": "num",
+        "database": "postgres",
+        "databaseFieldType": "str",
+        "ssl": "false",
+        "sslFieldType": "bool",
+        "applicationName": "",
+        "applicationNameType": "str",
+        "max": 10,
+        "maxFieldType": "num",
+        "idle": 1000,
+        "idleFieldType": "num",
+        "connectionTimeout": 10000,
+        "connectionTimeoutFieldType": "num",
+        "user": "iot_user",
+        "userFieldType": "str",
+        "password": "iot_pass",
+        "passwordFieldType": "str"
+    },
+    {
+        "id": "63b41412cd552366",
+        "type": "mqtt in",
+        "z": "823f377cc60a4f84",
+        "name": "",
+        "topic": "enc/#",
+        "qos": "1",
+        "datatype": "auto-detect",
+        "broker": "d9f7867ac02562f5",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 270,
+        "y": 240,
+        "wires": [
+            [
+                "ea93da68f534e366",
+                "0a2b5c5bbe18ae28"
+            ]
+        ]
+    },
+    {
+        "id": "f10c4e7dacc092d4",
+        "type": "function",
+        "z": "823f377cc60a4f84",
+        "name": "decrypt_topic",
+        "func": "// ===============================\n// DECRYPT TOPIC (AES-256-CBC)\n// ===============================\n\nconst algorithm = \"aes-256-cbc\";\nconst sharedSecret = env.get(\"TOPIC_AES_SECRET\");\n\nif (!sharedSecret || sharedSecret.length < 16) {\n    node.error(\"TOPIC_AES_SECRET non configurato o troppo corto\");\n    return null;\n}\n\nconst parts = String(msg.topic || \"\").split(\"/\");\n\nif (parts.length !== 3 || parts[0] !== \"enc\") {\n    return null;\n}\n\nconst ivHex = parts[1];\nconst encryptedHex = parts[2];\n\nif (!/^[0-9a-fA-F]{32}$/.test(ivHex) || !/^[0-9a-fA-F]+$/.test(encryptedHex)) {\n    node.warn(\"Topic cifrato non valido\");\n    return null;\n}\n\nconst key = crypto.createHash(\"sha256\")\n                  .update(sharedSecret)\n                  .digest();\n\nconst iv = Buffer.from(ivHex, \"hex\");\n\ntry {\n    const decipher = crypto.createDecipheriv(algorithm, key, iv);\n    let decrypted = decipher.update(encryptedHex, \"hex\", \"utf8\");\n    decrypted += decipher.final(\"utf8\");\n    msg.topic = decrypted;\n    return msg;\n} catch (err) {\n    node.error(\"Errore decrypt topic: \" + err.message);\n    return null;\n}",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "crypto",
+                "module": "crypto"
+            }
+        ],
+        "x": 670,
+        "y": 240,
+        "wires": [
+            [
+                "01d9318c82f8ef47"
+            ]
+        ]
+    },
+    {
+        "id": "667f4a8461e8f820",
+        "type": "mqtt out",
+        "z": "823f377cc60a4f84",
+        "name": "",
+        "topic": "",
+        "qos": "1",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "d9f7867ac02562f5",
+        "x": 1070,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "152fdfcf0a23e220",
+        "type": "debug",
+        "z": "823f377cc60a4f84",
+        "name": "debug 1",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1080,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "928fb0d32933cda5",
+        "type": "link out",
+        "z": "823f377cc60a4f84",
+        "name": "storingIN",
+        "mode": "link",
+        "links": [
+            "35f82afbf1c9a3eb"
+        ],
+        "x": 1045,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "ea93da68f534e366",
+        "type": "function",
+        "z": "823f377cc60a4f84",
+        "name": "add_timestamp_recv",
+        "func": "msg.payload = msg.payload || {};\nmsg.payload.tracing = msg.payload.tracing || {};\nmsg.payload.tracing.data_ctrl_recv = Date.now();\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 460,
+        "y": 240,
+        "wires": [
+            [
+                "f10c4e7dacc092d4"
+            ]
+        ]
+    },
+    {
+        "id": "01d9318c82f8ef47",
+        "type": "function",
+        "z": "823f377cc60a4f84",
+        "name": "add_timestamp_send",
+        "func": "msg.payload = msg.payload || {};\nmsg.payload.tracing = msg.payload.tracing || {};\nmsg.payload.tracing.data_ctrl_send = Date.now();\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 880,
+        "y": 240,
+        "wires": [
+            [
+                "667f4a8461e8f820",
+                "928fb0d32933cda5",
+                "152fdfcf0a23e220"
+            ]
+        ]
+    },
+    {
+        "id": "0a2b5c5bbe18ae28",
+        "type": "debug",
+        "z": "823f377cc60a4f84",
+        "name": "debug 4",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 480,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "1a8e98ba2ab96735",
+        "type": "postgresql",
+        "z": "30394f7e7e5489ea",
+        "name": "",
+        "query": "",
+        "postgreSQLConfig": "938d7b0aa278ed57",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 1130,
+        "y": 360,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "a2be56213d3704fe",
+        "type": "debug",
+        "z": "30394f7e7e5489ea",
+        "name": "debug 2",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1120,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "35f82afbf1c9a3eb",
+        "type": "link in",
+        "z": "30394f7e7e5489ea",
+        "name": "storingIN",
+        "links": [
+            "928fb0d32933cda5"
+        ],
+        "x": 155,
+        "y": 440,
+        "wires": [
+            [
+                "1994b5d4e583a7c7"
+            ]
+        ]
+    },
+    {
+        "id": "1994b5d4e583a7c7",
+        "type": "function",
+        "z": "30394f7e7e5489ea",
+        "name": "prepare_record",
+        "func": "const metadata =\n    msg.payload?.metadata ||\n    msg.payload?.encrypted?.metadata ||\n    {};\n\nconst messageId = metadata.message_id;\n\nif (!messageId) {\n    node.warn(\"message_id mancante: record non correlabile\");\n    return null;\n}\n\nlet ts = Number(metadata.timestamp_acq);\n\nif (!Number.isFinite(ts)) {\n    ts = Date.now();\n    node.warn(\"timestamp_acq mancante: uso timestamp di fallback\");\n}\n\nmsg.payload = {\n    message_id: messageId,\n    topic: msg.topic,\n    payload: msg.payload,\n    ts: ts\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 300,
+        "y": 440,
+        "wires": [
+            [
+                "43f2bcdd91183503"
+            ]
+        ]
+    },
+    {
+        "id": "43f2bcdd91183503",
+        "type": "join",
+        "z": "30394f7e7e5489ea",
+        "name": "batch_messages",
+        "mode": "custom",
+        "build": "array",
+        "property": "payload",
+        "propertyType": "msg",
+        "key": "topic",
+        "joiner": "\\n",
+        "joinerType": "str",
+        "useparts": false,
+        "accumulate": false,
+        "timeout": "1",
+        "count": "60",
+        "reduceRight": false,
+        "reduceExp": "",
+        "reduceInit": "",
+        "reduceInitType": "",
+        "reduceFixup": "",
+        "x": 520,
+        "y": 440,
+        "wires": [
+            [
+                "aa823ff2491c7b60"
+            ]
+        ]
+    },
+    {
+        "id": "aa823ff2491c7b60",
+        "type": "function",
+        "z": "30394f7e7e5489ea",
+        "name": "prepare_insert",
+        "func": "let records = msg.payload;\n\nlet values = [];\nlet params = [];\nlet i = 1;\n\nfor (let r of records) {\n\n    let p = r.payload.encrypted || r.payload;\n    let tracing = r.payload.tracing || {};\n\n    values.push(`($${i},$${i + 1},$${i + 2},to_timestamp($${i + 3}/1000.0),$${i + 4},$${i + 5},$${i + 6})`);\n\n    params.push(\n        r.message_id,\n        r.topic,\n        Buffer.from(p.encrypted_data, \"hex\"),\n        r.ts,\n        tracing.data_acq_send || null,\n        tracing.data_ctrl_recv || null,\n        tracing.data_ctrl_send || null\n    );\n\n    i += 7;\n}\n\nmsg.query = `\nINSERT INTO sensor_data\n(message_id, topic, encrypted_data, ts,\n data_acq_send, data_ctrl_recv, data_ctrl_send)\nVALUES ${values.join(\",\")}\n`;\n\nmsg.params = params;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 760,
+        "y": 440,
+        "wires": [
+            [
+                "1a8e98ba2ab96735",
+                "df92a726ef1081f7"
+            ]
+        ]
+    },
+    {
+        "id": "df92a726ef1081f7",
+        "type": "debug",
+        "z": "30394f7e7e5489ea",
+        "name": "debug 3",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1040,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "61e4b24036575386",
+        "type": "mqtt in",
+        "z": "30394f7e7e5489ea",
+        "name": "",
+        "topic": "tracing/update",
+        "qos": "1",
+        "datatype": "auto-detect",
+        "broker": "d9f7867ac02562f5",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 70,
+        "y": 320,
+        "wires": [
+            [
+                "4a9e03946d264f6f"
+            ]
+        ]
+    },
+    {
+        "id": "4a9e03946d264f6f",
+        "type": "function",
+        "z": "30394f7e7e5489ea",
+        "name": "normalize_proc_update",
+        "func": "// =============================\n// NORMALIZE PROC UPDATE\n// =============================\n\nif (!msg.payload || !msg.payload.message_id || msg.payload.data_proc_recv == null) {\n    return null;\n}\n\nmsg.payload = {\n    message_id: String(msg.payload.message_id),\n    data_proc_recv: Number(msg.payload.data_proc_recv)\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 320,
+        "wires": [
+            [
+                "8dd2fb0ccb6cc982"
+            ]
+        ]
+    },
+    {
+        "id": "eabff7343ece6156",
+        "type": "function",
+        "z": "30394f7e7e5489ea",
+        "name": "prepare_proc_update_batch",
+        "func": "// =============================\n// PREPARE PROC UPDATE BATCH\n// CORRELAZIONE SU MESSAGE_ID\n// =============================\n\nlet records = msg.payload;\n\nif (!Array.isArray(records) || records.length === 0) {\n    return null;\n}\n\nrecords = records.filter(r =>\n    r &&\n    typeof r.message_id === \"string\" &&\n    r.message_id.trim() !== \"\" &&\n    r.data_proc_recv !== undefined &&\n    r.data_proc_recv !== null\n);\n\nif (records.length === 0) {\n    return null;\n}\n\nlet latestByMessageId = {};\n\nfor (let r of records) {\n    latestByMessageId[r.message_id] = Number(r.data_proc_recv);\n}\n\nlet entries = Object.entries(latestByMessageId);\n\nif (entries.length === 0) {\n    return null;\n}\n\nlet values = [];\nlet params = [];\nlet i = 1;\n\nfor (let [messageId, procRecv] of entries) {\n    values.push(`($${i}::text, $${i + 1}::bigint)`);\n    params.push(messageId, procRecv);\n    i += 2;\n}\n\nmsg.query = `\nWITH incoming(message_id, data_proc_recv) AS (\n    VALUES ${values.join(\",\")}\n)\nUPDATE sensor_data s\nSET data_proc_recv = i.data_proc_recv\nFROM incoming i\nWHERE s.message_id = i.message_id;\n`;\n\nmsg.params = params;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 900,
+        "y": 320,
+        "wires": [
+            [
+                "1a8e98ba2ab96735",
+                "a2be56213d3704fe"
+            ]
+        ]
+    },
+    {
+        "id": "8dd2fb0ccb6cc982",
+        "type": "join",
+        "z": "30394f7e7e5489ea",
+        "name": "join_proc_updates",
+        "mode": "custom",
+        "build": "array",
+        "property": "payload",
+        "propertyType": "msg",
+        "key": "topic",
+        "joiner": "\\n",
+        "joinerType": "str",
+        "useparts": false,
+        "accumulate": false,
+        "timeout": "1",
+        "count": "50",
+        "reduceRight": false,
+        "reduceExp": "",
+        "reduceInit": "",
+        "reduceInitType": "",
+        "reduceFixup": "",
+        "x": 660,
+        "y": 320,
+        "wires": [
+            [
+                "eabff7343ece6156"
+            ]
+        ]
+    },
+    {
+        "id": "2a49ca18d65b2773",
+        "type": "inject",
+        "z": "3872f0e434942923",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 370,
+        "y": 140,
+        "wires": [
+            [
+                "83590682e273297a"
+            ]
+        ]
+    },
+    {
+        "id": "83590682e273297a",
+        "type": "function",
+        "z": "3872f0e434942923",
+        "name": "db_purge",
+        "func": "msg.query = \"TRUNCATE TABLE sensor_data RESTART IDENTITY;\";\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 580,
+        "y": 140,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "5765830d37821a24",
+        "type": "comment",
+        "z": "3872f0e434942923",
+        "name": "DB credentials",
+        "info": "docker run -d \\\n--name postgres-iot \\\n-e POSTGRES_USER=iot_user \\\n-e POSTGRES_PASSWORD=iot_pass \\\n-e POSTGRES_DB=iot_data \\\n-p 5432:5432 \\\npostgres:16",
+        "x": 380,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "378c01b3d7d07682",
+        "type": "inject",
+        "z": "3872f0e434942923",
+        "name": "inject_dbBootstrap",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.5",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 230,
+        "y": 240,
+        "wires": [
+            [
+                "15d2297bfe5aac98"
+            ]
+        ]
+    },
+    {
+        "id": "6caf9a412f44ef80",
+        "type": "postgresql",
+        "z": "3872f0e434942923",
+        "name": "",
+        "query": "",
+        "postgreSQLConfig": "16c46cf574cd077c",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 1510,
+        "y": 240,
+        "wires": [
+            [
+                "f6217352c49a57ea",
+                "54cc3a21cd3a4e94",
+                "6ad0e360607743f8",
+                "fd1c376bef76714c"
+            ]
+        ]
+    },
+    {
+        "id": "c5fc0f22646d7afa",
+        "type": "postgresql",
+        "z": "3872f0e434942923",
+        "name": "",
+        "query": "",
+        "postgreSQLConfig": "938d7b0aa278ed57",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 2030,
+        "y": 240,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "f6217352c49a57ea",
+        "type": "function",
+        "z": "3872f0e434942923",
+        "name": "create_sensor_data",
+        "func": "msg.query = `\nDROP TABLE IF EXISTS sensor_data CASCADE;\n\nCREATE TABLE IF NOT EXISTS sensor_data (\n\n    id BIGSERIAL PRIMARY KEY,\n    message_id TEXT NOT NULL UNIQUE,\n    topic TEXT NOT NULL,\n    encrypted_data BYTEA NOT NULL,\n    ts TIMESTAMPTZ DEFAULT NOW(),\n\n    data_acq_send BIGINT,\n    data_ctrl_recv BIGINT,\n    data_ctrl_send BIGINT,\n    data_proc_recv BIGINT\n\n);\n\nCREATE UNIQUE INDEX IF NOT EXISTS idx_sensor_message_id\nON sensor_data(message_id);\n\nCREATE INDEX IF NOT EXISTS idx_sensor_ts\nON sensor_data(ts DESC);\n\nCREATE INDEX IF NOT EXISTS idx_sensor_topic_ts\nON sensor_data(topic, ts DESC);\n\n`;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1760,
+        "y": 180,
+        "wires": [
+            [
+                "c5fc0f22646d7afa"
+            ]
+        ]
+    },
+    {
+        "id": "54cc3a21cd3a4e94",
+        "type": "function",
+        "z": "3872f0e434942923",
+        "name": "create_analytics_metrics",
+        "func": "msg.query = `\nDROP TABLE IF EXISTS analytics_metrics CASCADE;\n\nCREATE TABLE IF NOT EXISTS analytics_metrics(\n\n    id BIGSERIAL PRIMARY KEY,\n    ts TIMESTAMPTZ DEFAULT NOW(),\n    room TEXT NOT NULL,\n    metric TEXT NOT NULL,\n    metric_key TEXT NOT NULL,\n    value DOUBLE PRECISION,\n    moving_avg DOUBLE PRECISION,\n    trend TEXT,\n    spike BOOLEAN,\n    zscore DOUBLE PRECISION,\n    anomaly BOOLEAN,\n    instability_score DOUBLE PRECISION\n\n);\n\nCREATE INDEX IF NOT EXISTS idx_analytics_room_metric_ts\nON analytics_metrics(room, metric, ts DESC);\n\nCREATE INDEX IF NOT EXISTS idx_analytics_metric_key_ts\nON analytics_metrics(metric_key, ts DESC);\n\n`;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1770,
+        "y": 220,
+        "wires": [
+            [
+                "c5fc0f22646d7afa"
+            ]
+        ]
+    },
+    {
+        "id": "6ad0e360607743f8",
+        "type": "function",
+        "z": "3872f0e434942923",
+        "name": "create_anomaly&alert",
+        "func": "msg.query = `\nDROP TABLE IF EXISTS anomaly_log CASCADE;\nDROP TABLE IF EXISTS alert_rules CASCADE;\nDROP TABLE IF EXISTS alert_log CASCADE;\n\nCREATE TABLE anomaly_log (\n    id SERIAL PRIMARY KEY,\n    ts TIMESTAMP NOT NULL,\n    metric TEXT,\n    room TEXT,\n    value DOUBLE PRECISION,\n    zscore DOUBLE PRECISION\n);\n\nCREATE TABLE alert_rules (\n    id SERIAL PRIMARY KEY,\n    room TEXT NOT NULL,\n    metric TEXT NOT NULL,\n    operator TEXT NOT NULL,\n    threshold DOUBLE PRECISION NOT NULL,\n    enabled BOOLEAN DEFAULT TRUE\n);\n\nCREATE TABLE alert_log (\n    id SERIAL PRIMARY KEY,\n    ts TIMESTAMP NOT NULL,\n    metric TEXT,\n    room TEXT,\n    value DOUBLE PRECISION,\n    threshold DOUBLE PRECISION,\n    operator TEXT\n);\n\nCREATE INDEX IF NOT EXISTS idx_alert_room_metric\nON alert_rules(room, metric);\n\n`;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1760,
+        "y": 260,
+        "wires": [
+            [
+                "c5fc0f22646d7afa"
+            ]
+        ]
+    },
+    {
+        "id": "fd1c376bef76714c",
+        "type": "function",
+        "z": "3872f0e434942923",
+        "name": "create_dashboard_users",
+        "func": "const dashboardSecret = env.get(\"DASHBOARD_AUTH_SECRET\");\n\nif (!dashboardSecret || dashboardSecret.length < 16) {\n    node.error(\"DASHBOARD_AUTH_SECRET non configurato o troppo corto\");\n    return null;\n}\n\nfunction sqlLiteral(value) {\n    return \"'\" + String(value).replace(/'/g, \"''\") + \"'\";\n}\n\nconst pepperSql = sqlLiteral(dashboardSecret);\n\nmsg.query = `\nDROP TABLE IF EXISTS dashboard_users CASCADE;\n\nCREATE EXTENSION IF NOT EXISTS pgcrypto;\n\nCREATE TABLE dashboard_users (\n\n    id SERIAL PRIMARY KEY,\n\n    username TEXT NOT NULL UNIQUE,\n    role TEXT NOT NULL CHECK (role IN ('user','admin','guest')),\n    password_hash TEXT NOT NULL,\n    active BOOLEAN NOT NULL DEFAULT true,\n    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),\n    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()\n\n);\n\nCREATE INDEX IF NOT EXISTS idx_dashboard_users_username\nON dashboard_users(username);\n\nINSERT INTO dashboard_users (username, role, password_hash, active, updated_at)\nVALUES\n('user','user',crypt('user_iot_2026' || ${pepperSql}, gen_salt('bf')),true,NOW()),\n('admin','admin',crypt('admin_iot_2026' || ${pepperSql}, gen_salt('bf')),true,NOW()),\n('guest','guest',crypt('guest_iot_2026' || ${pepperSql}, gen_salt('bf')),true,NOW());\n`;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1770,
+        "y": 300,
+        "wires": [
+            [
+                "c5fc0f22646d7afa"
+            ]
+        ]
+    },
+    {
+        "id": "15d2297bfe5aac98",
+        "type": "function",
+        "z": "3872f0e434942923",
+        "name": "db_terminate_sessions",
+        "func": "msg.query = `\nSELECT pg_terminate_backend(pid)\nFROM pg_stat_activity\nWHERE datname = 'iot_data'\n  AND pid <> pg_backend_pid();\n`;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 240,
+        "wires": [
+            [
+                "d1870efdc84be345"
+            ]
+        ]
+    },
+    {
+        "id": "9bbbe118d7b58b3f",
+        "type": "function",
+        "z": "3872f0e434942923",
+        "name": "db_drop_database",
+        "func": "msg.query = `\nDROP DATABASE IF EXISTS iot_data;\n`;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 890,
+        "y": 240,
+        "wires": [
+            [
+                "1b5580e05f4326cf"
+            ]
+        ]
+    },
+    {
+        "id": "becbca52a7f44912",
+        "type": "function",
+        "z": "3872f0e434942923",
+        "name": "db_create_database",
+        "func": "msg.query = `\nCREATE DATABASE iot_data;\n`;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1300,
+        "y": 240,
+        "wires": [
+            [
+                "6caf9a412f44ef80"
+            ]
+        ]
+    },
+    {
+        "id": "d1870efdc84be345",
+        "type": "postgresql",
+        "z": "3872f0e434942923",
+        "name": "",
+        "query": "",
+        "postgreSQLConfig": "16c46cf574cd077c",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 690,
+        "y": 240,
+        "wires": [
+            [
+                "9bbbe118d7b58b3f"
+            ]
+        ]
+    },
+    {
+        "id": "1b5580e05f4326cf",
+        "type": "postgresql",
+        "z": "3872f0e434942923",
+        "name": "",
+        "query": "",
+        "postgreSQLConfig": "16c46cf574cd077c",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 1090,
+        "y": 240,
+        "wires": [
+            [
+                "becbca52a7f44912"
+            ]
+        ]
+    },
+    {
+        "id": "01f75233901cb542",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-contrib-postgresql": "0.15.4"
+        }
+    }
+]
