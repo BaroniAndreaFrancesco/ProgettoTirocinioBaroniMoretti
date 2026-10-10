@@ -1,0 +1,9 @@
+1) Creazione DataBase vuoto di destinazione: 
+	
+	Bash:
+	createdb -U <utente_postgres> iot_data
+
+2) Esecuzione ripristino con pg_restore:
+ 	
+	Bash:
+	pg_restore -U <utente_postgres> -d iot_data -v --no-owner --no-privileges backup.dump	
